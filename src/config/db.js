@@ -18,8 +18,8 @@ pool
     console.log("Database connected successfully");
     connection.release();
   })
-  .catch((err) => {
-    console.error("Error connecting to the database:", err);
+  .catch((error) => {
+    console.error("Error connecting to the database:", error);
   });
 
 module.exports = pool;

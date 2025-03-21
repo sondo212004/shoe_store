@@ -96,6 +96,7 @@ const UserProfile = () => {
   };
 
   if (loading) return <div>Đang tải...</div>;
+  if (!user) return <div>Không tìm thấy thông tin người dùng</div>;
 
   return (
     <>

@@ -6,18 +6,22 @@ const {
   addToCart,
   updateCartItem,
   removeFromCart,
+  updateCartQuantity,
 } = require("../controllers/cartController");
 
 // Lấy giỏ hàng của user
 router.get("/", verifyToken, getCart);
 
 // Thêm sản phẩm vào giỏ hàng
-router.post("/add", verifyToken, addToCart);
+router.post("/", verifyToken, addToCart);
 
 // Cập nhật số lượng sản phẩm trong giỏ hàng
-router.put("/update/:productId", verifyToken, updateCartItem);
+router.put("/:itemId", verifyToken, updateCartItem);
 
 // Xóa sản phẩm khỏi giỏ hàng
-router.delete("/remove/:productId", verifyToken, removeFromCart);
+router.delete("/:itemId", verifyToken, removeFromCart);
+
+// Cập nhật số lượng sản phẩm trong giỏ hàng
+router.put("/:cartId", verifyToken, updateCartQuantity);
 
 module.exports = router;

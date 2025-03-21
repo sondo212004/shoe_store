@@ -13,7 +13,17 @@ const Main = () => {
     const fetchProducts = async () => {
       try {
         const response = await axios.get("http://localhost:5000/api/products/");
+        console.log("API Response:", response.data);
+
         if (response.data.success) {
+          // Log thông tin sản phẩm để debug
+          const sampleProduct = response.data.data[0];
+          console.log("Sample product:", {
+            id: sampleProduct?.product_id,
+            name: sampleProduct?.name,
+            image: sampleProduct?.image,
+          });
+
           setProducts(response.data.data);
         }
       } catch (err) {
@@ -37,16 +47,24 @@ const Main = () => {
         <h2 className="sidebar-title">DANH MỤC SẢN PHẨM</h2>
         <ul className="category-list">
           <li>
-            <img src="adidas-logo.png" alt="Adidas" className="brand-icon" />
+            <img
+              src="/images/adidas-logo.png"
+              alt="Adidas"
+              className="brand-icon"
+            />
             <Link to="#">Giày Adidas cao cấp</Link>
           </li>
           <li>
-            <img src="nike-logo.png" alt="Nike" className="brand-icon" />
+            <img
+              src="/images/nike-logo.png"
+              alt="Nike"
+              className="brand-icon"
+            />
             <Link to="#">Giày Nike cao cấp</Link>
           </li>
           <li>
             <img
-              src="balenciaga-logo.png"
+              src="/images/balenciaga-logo.png"
               alt="Balenciaga"
               className="brand-icon"
             />
@@ -54,7 +72,7 @@ const Main = () => {
           </li>
           <li>
             <img
-              src="newbalance-logo.png"
+              src="/images/newbalance-logo.png"
               alt="New Balance"
               className="brand-icon"
             />
@@ -62,26 +80,42 @@ const Main = () => {
           </li>
           <li>
             <img
-              src="converse-logo.png"
+              src="/images/converse-logo.png"
               alt="Converse"
               className="brand-icon"
             />
             <Link to="#">Giày Converse</Link>
           </li>
           <li>
-            <img src="puma-logo.png" alt="Puma" className="brand-icon" />
+            <img
+              src="/images/puma-logo.png"
+              alt="Puma"
+              className="brand-icon"
+            />
             <Link to="#">Giày Puma</Link>
           </li>
           <li>
-            <img src="vans-logo.png" alt="Vans" className="brand-icon" />
+            <img
+              src="/images/vans-logo.png"
+              alt="Vans"
+              className="brand-icon"
+            />
             <Link to="#">Giày VanS</Link>
           </li>
           <li>
-            <img src="asics-logo.png" alt="Asics" className="brand-icon" />
+            <img
+              src="/images/asics-logo.png"
+              alt="Asics"
+              className="brand-icon"
+            />
             <Link to="#">Giày Asics</Link>
           </li>
           <li>
-            <img src="reebok-logo.png" alt="Reebok" className="brand-icon" />
+            <img
+              src="/images/reebok-logo.png"
+              alt="Reebok"
+              className="brand-icon"
+            />
             <Link to="#">Giày Reebok</Link>
           </li>
         </ul>
@@ -89,7 +123,7 @@ const Main = () => {
 
       <div className="banner-section col-md-9">
         <img
-          src="/sneaker-that-has-word-nike-it.jpg"
+          src="https://giaysneaker.store/media/wysiwyg/slidershow/home-12/banner_CONVERSE.jpg"
           alt="Nike Sneaker Banner"
           className="banner-image"
         />
@@ -103,7 +137,6 @@ const Main = () => {
       {/* Main Content */}
       <div className="main-content">
         {/* Best Sellers Section */}
-
         <div className="best-sellers">
           <div className="section-header">
             <h2>SẢN PHẨM BÁN CHẠY</h2>
@@ -120,7 +153,17 @@ const Main = () => {
               >
                 <div className="product-card">
                   <div className="product-image">
-                    <img src={product.image_url} alt={product.name} />
+                    <img
+                      src={`${product.image}`}
+                      alt={product.name}
+                      onError={(e) => {
+                        console.error("Image load error:", {
+                          productId: product.product_id,
+                          productName: product.name,
+                          imagePath: product.image,
+                        });
+                      }}
+                    />
                     {product.discount > 0 && (
                       <span className="discount-badge">
                         -{product.discount}%
@@ -152,8 +195,7 @@ const Main = () => {
                     <button
                       className="add-to-cart-btn"
                       onClick={(e) => {
-                        e.preventDefault(); // Ngăn chặn việc chuyển trang khi click vào nút
-                        // Xử lý thêm vào giỏ hàng ở đây
+                        e.preventDefault();
                       }}
                     >
                       Thêm vào giỏ

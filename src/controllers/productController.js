@@ -1,17 +1,41 @@
 const db = require("../config/db"); // Import kết nối DB
+const fs = require("fs");
+const path = require("path");
 
 const getAllProducts = async (req, res) => {
   try {
-    console.log("Đang lấy sản phẩm...");
-    const [products] = await db.query("SELECT * FROM products");
-    // console.log("Sản phẩm:", products); // Kiểm tra data trả về
-    res.json({ success: true, data: products });
+    // Lấy tất cả sản phẩm
+    const [products] = await db.query(
+      "SELECT product_id, name, description, price, image FROM products"
+    );
+
+    // Log thông tin sản phẩm
+    console.log("Sản phẩm từ DB:", {
+      totalProducts: products.length,
+      sampleProduct: products[0],
+    });
+
+    // Kiểm tra file ảnh
+    products.forEach((product) => {
+      if (product.image) {
+        const imagePath = path.join(__dirname, "..", "uploads", product.image);
+        console.log(`Kiểm tra ảnh ${product.name}:`, {
+          imagePath,
+          exists: fs.existsSync(imagePath),
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      data: products,
+    });
   } catch (error) {
     console.error("Lỗi khi lấy danh sách sản phẩm:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi khi lấy danh sách sản phẩm",
-      error: error.message, // Thêm chi tiết lỗi
+      error: error.message,
     });
   }
 };
@@ -19,37 +43,47 @@ const getAllProducts = async (req, res) => {
 // Lấy sản phẩm theo ID
 const getProductById = async (req, res) => {
   try {
-    // Lấy thông tin sản phẩm cơ bản
+    const { id } = req.params;
+
+    // Lấy thông tin sản phẩm
     const [product] = await db.query(
       "SELECT * FROM products WHERE product_id = ?",
-      [req.params.id]
+      [id]
     );
 
-    if (!product.length) {
+    if (!product[0]) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy sản phẩm",
       });
     }
 
-    // Lấy thông tin variants của sản phẩm
+    // Lấy variants của sản phẩm
     const [variants] = await db.query(
       "SELECT * FROM productvariants WHERE product_id = ?",
-      [req.params.id]
+      [id]
     );
+
+    const productData = {
+      ...product[0],
+      variants,
+    };
+
+    console.log("Chi tiết sản phẩm:", {
+      productId: id,
+      image: productData.image,
+    });
 
     res.json({
       success: true,
-      data: {
-        ...product[0],
-        variants: variants,
-      },
+      data: productData,
     });
   } catch (error) {
-    console.error("Lỗi khi lấy sản phẩm:", error);
+    console.error("Lỗi khi lấy chi tiết sản phẩm:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi lấy sản phẩm",
+      message: "Lỗi khi lấy chi tiết sản phẩm",
+      error: error.message,
     });
   }
 };

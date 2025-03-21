@@ -2,24 +2,35 @@ const express = require("express");
 const router = express.Router();
 const verifyToken = require("../middleware/authMiddleware");
 const isAdmin = require("../middleware/adminMiddleware");
+const orderController = require("../controllers/orderController");
 
-// Lấy danh sách đơn hàng của user
+// Route lấy đơn hàng của user
 router.get("/my-orders", verifyToken, async (req, res) => {
+  console.log("Nhận request GET /my-orders");
   try {
-    // TODO: Thêm logic lấy đơn hàng từ database
-    res.json({ message: "Lấy danh sách đơn hàng thành công" });
+    await orderController.getMyOrders(req, res);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Lỗi xử lý route /my-orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi xử lý yêu cầu",
+      error: error.message,
+    });
   }
 });
 
-// Tạo đơn hàng mới
-router.post("/create", verifyToken, async (req, res) => {
+// Route tạo đơn hàng mới
+router.post("/", verifyToken, async (req, res) => {
+  console.log("Nhận request POST /");
   try {
-    // TODO: Thêm logic tạo đơn hàng mới
-    res.json({ message: "Tạo đơn hàng thành công" });
+    await orderController.createOrder(req, res);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Lỗi xử lý route tạo đơn hàng:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi tạo đơn hàng",
+      error: error.message,
+    });
   }
 });
 

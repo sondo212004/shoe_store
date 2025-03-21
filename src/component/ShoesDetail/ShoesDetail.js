@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { FiShoppingCart } from "react-icons/fi";
 import "./ShoesDetail.css";
@@ -8,6 +8,7 @@ import Footer from "../Footer/footer";
 
 const ShoesDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,32 +16,245 @@ const ShoesDetail = () => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [addToCartMessage, setAddToCartMessage] = useState(null);
+  const token = localStorage.getItem("token");
+  const [reviews, setReviews] = useState([]);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [reviewError, setReviewError] = useState(null);
+  const [reviewSuccess, setReviewSuccess] = useState(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
         const response = await axios.get(
           `http://localhost:5000/api/products/${id}`
         );
+
+        console.log("API Response:", response.data);
+
         if (response.data.success) {
-          setProduct(response.data.data);
-          // Nếu có variants, chọn variant đầu tiên làm mặc định
-          if (
-            response.data.data.variants &&
-            response.data.data.variants.length > 0
-          ) {
-            setSelectedVariant(response.data.data.variants[0]);
+          const productData = response.data.data;
+          console.log("Product data received:", {
+            ...productData,
+            fullImageUrl: productData.image_url,
+          });
+
+          if (!productData) {
+            setError("Không tìm thấy thông tin sản phẩm");
+            return;
           }
+
+          setProduct(productData);
+
+          // Nếu có variants, lấy màu đầu tiên làm mặc định
+          if (productData.variants && productData.variants.length > 0) {
+            const firstColor = productData.variants[0].color;
+            setSelectedColor(firstColor);
+            console.log("Setting default color:", firstColor);
+          } else {
+            console.log("No variants found for product");
+          }
+
+          // Fetch reviews after getting product
+          try {
+            const reviewsResponse = await axios.get(
+              `http://localhost:5000/api/reviews/product/${id}`
+            );
+            console.log("Reviews response:", reviewsResponse.data);
+            if (reviewsResponse.data.success) {
+              setReviews(reviewsResponse.data.data);
+            }
+          } catch (reviewError) {
+            console.error("Error fetching reviews:", reviewError);
+            setReviewError("Không thể tải đánh giá sản phẩm");
+          }
+        } else {
+          setError(response.data.message || "Không thể tải thông tin sản phẩm");
         }
       } catch (err) {
-        setError("Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.");
-        console.error("Error fetching product:", err);
+        console.error("Error details:", err.response || err);
+        let errorMessage = "Không thể tải thông tin sản phẩm. ";
+
+        if (err.response) {
+          errorMessage += err.response.data.message || "Vui lòng thử lại sau.";
+        } else if (err.request) {
+          errorMessage += "Không thể kết nối đến server.";
+        } else {
+          errorMessage += "Đã xảy ra lỗi. Vui lòng thử lại.";
+        }
+
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
+  }, [id]);
+
+  const handleColorSelect = (color) => {
+    console.log("Selected color:", color);
+    setSelectedColor(color);
+    setSelectedSize(null); // Reset size khi đổi màu
+    setSelectedVariant(null); // Reset variant khi đổi màu
+  };
+
+  const handleSizeSelect = (variant) => {
+    console.log("Selected variant:", variant);
+    setSelectedVariant(variant);
+    setSelectedSize(variant.size);
+  };
+
+  const handleAddToCart = async () => {
+    try {
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      if (!selectedVariant) {
+        setAddToCartMessage({
+          type: "error",
+          content: "Vui lòng chọn màu sắc và kích thước",
+        });
+        return;
+      }
+
+      const cartData = {
+        productId: product.product_id,
+        variantId: selectedVariant.variant_id,
+        quantity: quantity,
+      };
+
+      console.log("Sending cart data:", cartData);
+
+      const response = await axios.post(
+        "http://localhost:5000/api/cart",
+        cartData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setAddToCartMessage({
+          type: "success",
+          content: "Đã thêm vào giỏ hàng thành công!",
+        });
+        setTimeout(() => setAddToCartMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      setAddToCartMessage({
+        type: "error",
+        content: error.response?.data?.message || "Không thể thêm vào giỏ hàng",
+      });
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!token) {
+      setReviewError("Vui lòng đăng nhập để đánh giá sản phẩm");
+      return;
+    }
+
+    try {
+      console.log("Đang gửi đánh giá với dữ liệu:", {
+        product_id: id,
+        rating,
+        comment,
+      });
+
+      const response = await axios.post(
+        `http://localhost:5000/api/reviews`,
+        {
+          product_id: id,
+          rating,
+          comment,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Phản hồi từ API thêm đánh giá:", response.data);
+
+      if (response.data.success) {
+        setReviewSuccess("Đánh giá của bạn đã được gửi thành công!");
+        setComment("");
+        setRating(5);
+
+        // Tải lại danh sách đánh giá
+        try {
+          console.log("Đang tải lại danh sách đánh giá...");
+          const reviewsResponse = await axios.get(
+            `http://localhost:5000/api/reviews/product/${id}`
+          );
+          console.log("Phản hồi từ API lấy đánh giá:", reviewsResponse.data);
+
+          if (reviewsResponse.data.success) {
+            setReviews(reviewsResponse.data.data);
+            console.log(
+              "Đã cập nhật danh sách đánh giá:",
+              reviewsResponse.data.data
+            );
+          } else {
+            console.error(
+              "Lỗi khi tải lại đánh giá:",
+              reviewsResponse.data.message
+            );
+          }
+        } catch (reviewError) {
+          console.error("Lỗi khi tải lại danh sách đánh giá:", reviewError);
+        }
+
+        setTimeout(() => setReviewSuccess(null), 3000);
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      setReviewError(
+        error.response?.data?.message ||
+          "Không thể gửi đánh giá. Vui lòng thử lại sau."
+      );
+      setTimeout(() => setReviewError(null), 3000);
+    }
+  };
+
+  // Thêm hàm fetchReviews riêng
+  const fetchReviews = async () => {
+    try {
+      console.log("Đang tải danh sách đánh giá cho sản phẩm:", id);
+      const reviewsResponse = await axios.get(
+        `http://localhost:5000/api/reviews/product/${id}`
+      );
+      console.log("Kết quả lấy đánh giá:", reviewsResponse.data);
+
+      if (reviewsResponse.data.success) {
+        setReviews(reviewsResponse.data.data);
+        console.log("Số lượng đánh giá:", reviewsResponse.data.data.length);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải đánh giá:", error);
+      setReviewError("Không thể tải đánh giá sản phẩm");
+    }
+  };
+
+  // Thêm useEffect riêng cho việc tải đánh giá
+  useEffect(() => {
+    if (id) {
+      fetchReviews();
+    }
   }, [id]);
 
   // Lọc danh sách màu sắc duy nhất từ variants
@@ -53,35 +267,13 @@ const ShoesDetail = () => {
     ? product.variants.filter((v) => v.color === selectedColor)
     : [];
 
-  const handleColorSelect = (color) => {
-    setSelectedColor(color);
-    setSelectedSize(null); // Reset size khi đổi màu
-    setSelectedVariant(null); // Reset variant khi đổi màu
-  };
+  // Thêm component thông báo
+  const MessagePopup = ({ message }) => {
+    if (!message) return null;
 
-  const handleSizeSelect = (variant) => {
-    setSelectedVariant(variant);
-    setSelectedSize(variant.size);
-  };
-
-  const handleQuantityChange = (e) => {
-    const value = parseInt(e.target.value);
-    if (value > 0 && selectedVariant && value <= selectedVariant.stock) {
-      setQuantity(value);
-    }
-  };
-
-  const handleAddToCart = () => {
-    if (!selectedVariant) {
-      alert("Vui lòng chọn size và màu sắc");
-      return;
-    }
-    // TODO: Implement add to cart functionality
-    console.log("Adding to cart:", {
-      product,
-      variant: selectedVariant,
-      quantity,
-    });
+    return (
+      <div className={`message-popup ${message.type}`}>{message.content}</div>
+    );
   };
 
   if (loading) return <div className="loading">Đang tải sản phẩm...</div>;
@@ -92,10 +284,23 @@ const ShoesDetail = () => {
     <>
       <Header />
       <div className="shoes-detail-container">
+        {addToCartMessage && <MessagePopup message={addToCartMessage} />}
         <div className="product-detail">
           <div className="product-images">
             <div className="main-image">
-              <img src={product.image_url} alt={product.name} />
+              <img
+                src={`${product.image}`}
+                alt={product.name}
+                onError={(e) => {
+                  console.error("Image load error:", {
+                    originalSrc: e.target.src,
+                    productId: product.product_id,
+                    productName: product.name,
+                    image: product.image,
+                  });
+                  e.target.src = "/images/placeholder.jpg";
+                }}
+              />
             </div>
           </div>
 
@@ -129,7 +334,7 @@ const ShoesDetail = () => {
 
             <div className="color-selector">
               <h3>Màu sắc</h3>
-              <div className="color-options border border-0">
+              <div className="color-options">
                 {uniqueColors.map((color, index) => (
                   <button
                     key={index}
@@ -183,7 +388,16 @@ const ShoesDetail = () => {
                   <input
                     type="number"
                     value={quantity}
-                    onChange={handleQuantityChange}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (
+                        value > 0 &&
+                        selectedVariant &&
+                        value <= selectedVariant.stock
+                      ) {
+                        setQuantity(value);
+                      }
+                    }}
                     min="1"
                     max={selectedVariant?.stock || 1}
                     disabled={!selectedVariant}
@@ -218,6 +432,86 @@ const ShoesDetail = () => {
                   : "Thêm vào giỏ hàng"}
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className="reviews-section">
+          <h2>Đánh giá sản phẩm</h2>
+
+          {/* Form đánh giá */}
+          <div className="review-form">
+            <h3>Viết đánh giá của bạn</h3>
+            {reviewError && <div className="error-message">{reviewError}</div>}
+            {reviewSuccess && (
+              <div className="success-message">{reviewSuccess}</div>
+            )}
+            <form onSubmit={handleSubmitReview}>
+              <div className="rating-input">
+                <label>Đánh giá của bạn:</label>
+                <div className="star-rating">
+                  {[5, 4, 3, 2, 1].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className={`star-btn ${rating >= star ? "filled" : ""}`}
+                      onClick={() => setRating(star)}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="comment-input">
+                <label>Nhận xét của bạn:</label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..."
+                  required
+                />
+              </div>
+              <button type="submit" className="submit-review-btn">
+                Gửi đánh giá
+              </button>
+            </form>
+          </div>
+
+          {/* Danh sách đánh giá */}
+          <div className="reviews-list">
+            <h3>Tất cả đánh giá</h3>
+            {reviews.length === 0 ? (
+              <div className="no-reviews">
+                <p>Chưa có đánh giá nào cho sản phẩm này</p>
+              </div>
+            ) : (
+              reviews.map((review) => (
+                <div key={review.review_id} className="review-item">
+                  <div className="review-header">
+                    <div className="reviewer-info">
+                      <span className="reviewer-name">{review.username}</span>
+                      <span className="review-date">
+                        {new Date(review.created_at).toLocaleDateString(
+                          "vi-VN"
+                        )}
+                      </span>
+                    </div>
+                    <div className="rating">
+                      {[...Array(5)].map((_, index) => (
+                        <span
+                          key={index}
+                          className={`star ${
+                            index < review.rating ? "filled" : ""
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="review-comment">{review.comment}</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

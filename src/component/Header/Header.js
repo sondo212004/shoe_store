@@ -3,11 +3,51 @@ import React, { useState, useEffect } from "react";
 import "./Header.css";
 import { Link, useNavigate } from "react-router-dom";
 import UserProfile from "../Users/UserProfile";
+import { SearchResultsList } from "./SearchResultList";
+import { SearchResult } from "./SearchResult";
+import axios from "axios";
+import Cart from "../Cart/Cart";
+
 const Header = () => {
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const isLoggedIn = !!localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("token");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+
+  // Fetch số lượng sản phẩm trong giỏ hàng
+  const fetchCartCount = async () => {
+    if (!token) return;
+
+    try {
+      const response = await axios.get("http://localhost:5000/api/cart", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.data) {
+        // Tính tổng số lượng từ tất cả các sản phẩm trong giỏ hàng
+        const totalItems = response.data.data.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+        setCartCount(totalItems);
+      }
+    } catch (error) {
+      console.error("Error fetching cart count:", error);
+      setCartCount(0);
+    }
+  };
+
+  // Gọi fetchCartCount khi component mount và khi token thay đổi
+  useEffect(() => {
+    fetchCartCount();
+  }, [token]);
 
   // Đóng user menu khi click bên ngoài
   useEffect(() => {
@@ -43,59 +83,118 @@ const Header = () => {
     window.location.reload();
   };
 
+  const handleSearchChange = async (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    if (value.trim()) {
+      try {
+        const response = await axios.get(
+          `http://localhost:5000/api/products/search?query=${value}`
+        );
+        if (response.data.success) {
+          setSearchResults(response.data.data);
+          setShowResults(true);
+        }
+      } catch (err) {
+        console.error("Search error:", err);
+      }
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
+    }
+  };
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".search-container")) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   return (
     <header className="p-2">
       <nav className="navbar">
         {/* Logo and Title */}
-        <div className="logo-container d-flex align-items-center">
-          <img
-            src="Logo_home.png"
-            alt="logo"
-            style={{ width: "70px", height: "70px" }}
-          />
-          <h2 style={{ fontWeight: "bold", color: "#7749F8" }}>Sneakers</h2>
+        <div className="logo-container">
+          <Link to="/" className="logo-link">
+            <img src="/Logo_home.png" alt="logo" className="logo-image" />
+            <h2>Sneakers</h2>
+          </Link>
         </div>
 
-        {/* Search Bar */}
+        {/* Update Search Bar */}
         <div className="search-container">
-          <input
-            type="text"
-            placeholder="Search for products, categories or brands..."
-          />
-          <button>
-            <img
-              src="https://static.vecteezy.com/system/resources/thumbnails/009/652/218/small_2x/magnifying-glass-icon-isolated-on-white-background-search-illustration-vector.jpg"
-              alt="search"
-              style={{ width: "25px", height: "25px" }}
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search for products, categories or brands..."
+              onFocus={() => setShowResults(true)}
             />
-          </button>
+            <button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          {showResults && searchResults.length > 0 && (
+            <SearchResultsList results={searchResults} />
+          )}
         </div>
 
-        {/* Navigation Links and Buttons */}
-        <div className="nav-links d-flex">
-          <a href="/" style={{ textDecoration: "none", color: "black" }}>
+        {/* Navigation Links and Cart */}
+        <div className="nav-links">
+          <Link to="/" className="nav-link">
             Home
-          </a>
-          <div className="position-relative">
-            <a href="#">
-              <img
-                src="https://static.vecteezy.com/system/resources/previews/001/504/962/non_2x/shopping-cart-icon-free-vector.jpg"
-                alt="cart"
-                style={{ width: "25px", height: "25px" }}
-              />
-              <span className="badge bg-danger">0</span>
-            </a>
-          </div>
+          </Link>
 
-          {/* Conditional rendering based on login state */}
-          <div className="auth-section">
-            {isLoggedIn ? (
+          {isLoggedIn ? (
+            <>
+              <div className="cart-wrapper">
+                <Link to="/cart" className="cart-link">
+                  <div className="cart-icon-container">
+                    <img
+                      src="https://static.vecteezy.com/system/resources/previews/001/504/962/non_2x/shopping-cart-icon-free-vector.jpg"
+                      alt="cart"
+                      className="cart-icon"
+                    />
+                    {cartCount > 0 && (
+                      <span className="cart-badge">{cartCount}</span>
+                    )}
+                  </div>
+                </Link>
+              </div>
+
               <div className="user-menu-container">
-                <div className="user-icon" onClick={toggleUserMenu}>
+                <div
+                  className="user-icon"
+                  onClick={toggleUserMenu}
+                  id="userIcon"
+                >
                   {user.fullName ? user.fullName[0].toUpperCase() : "👤"}
                 </div>
                 {showUserMenu && (
-                  <div className="user-menu">
+                  <div className="user-menu" id="userMenu">
                     <div className="user-info">
                       <p className="user-name">{user.fullName}</p>
                       <p className="user-email">{user.email}</p>
@@ -114,14 +213,14 @@ const Header = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="auth-buttons">
-                <Link to="/signup">Sign Up</Link>
-                <span className="divider">|</span>
-                <Link to="/login">Log in</Link>
-              </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="auth-buttons">
+              <Link to="/signup">Sign Up</Link>
+              <span className="divider">|</span>
+              <Link to="/login">Log in</Link>
+            </div>
+          )}
         </div>
       </nav>
     </header>

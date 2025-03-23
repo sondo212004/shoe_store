@@ -27,21 +27,28 @@ const Cart = () => {
 
       // Log để debug
       console.log("Token hiện tại:", token?.substring(0, 20));
+      console.log("Authorization header:", `Bearer ${token}`);
 
       const response = await axios.get("http://localhost:5000/api/cart", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        timeout: 5000, // Thêm timeout
+        timeout: 5000,
       });
 
       console.log("Response từ API:", response.data);
 
       if (response.data && response.data.data) {
-        setCartItems(response.data.data);
+        // Xử lý dữ liệu trước khi set state
+        const processedItems = response.data.data.map((item) => ({
+          ...item,
+          image_url: item.image, // Sử dụng image từ server
+        }));
+
+        setCartItems(processedItems);
         // Cập nhật tổng số lượng
-        const totalItems = response.data.data.reduce(
+        const totalItems = processedItems.reduce(
           (sum, item) => sum + item.quantity,
           0
         );
@@ -315,7 +322,9 @@ const Cart = () => {
             <div className="cart-items">
               {items.map((item) => (
                 <div key={item.cart_id} className="cart-item">
-                  <img src={item.image_url} alt={item.name} />
+                  <div className="item-image">
+                    <img src={item.image_url} alt={item.name} />
+                  </div>
                   <div className="item-details">
                     <h3>{item.name}</h3>
                     <p className="item-variant">

@@ -23,6 +23,13 @@ const Orders = () => {
       const tokenData = JSON.parse(atob(token.split(".")[1]));
       const expirationTime = tokenData.exp * 1000; // Chuyển sang milliseconds
 
+      console.log("Token data:", {
+        user_id: tokenData.user_id,
+        email: tokenData.email,
+        role: tokenData.role,
+        exp: new Date(expirationTime).toLocaleString(),
+      });
+
       if (Date.now() >= expirationTime) {
         setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
         setLoading(false);
@@ -79,10 +86,6 @@ const Orders = () => {
       if (error.response?.status === 401) {
         setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
         localStorage.removeItem("token");
-      } else if (error.response?.status === 404) {
-        setError(
-          "Không tìm thấy API endpoint. Vui lòng kiểm tra lại đường dẫn"
-        );
       } else {
         setError(
           "Không thể tải danh sách đơn hàng: " +
@@ -184,7 +187,8 @@ const Orders = () => {
                         className="item-image"
                         onError={(e) => {
                           console.error("Image load error:", item.image_url);
-                          e.target.src = "/placeholder.jpg";
+                          e.target.src =
+                            "http://localhost:5000/images/placeholder.jpg";
                         }}
                       />
                       <div className="item-info">

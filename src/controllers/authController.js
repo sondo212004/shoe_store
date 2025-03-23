@@ -60,15 +60,15 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
+    // Kiểm tra email và password
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Vui lòng nhập đầy đủ email và mật khẩu",
+        message: "Vui lòng nhập đầy đủ thông tin",
       });
     }
 
-    // Kiểm tra email tồn tại
+    // Tìm user theo email
     const [users] = await db.query("SELECT * FROM users WHERE email = ?", [
       email,
     ]);
@@ -76,7 +76,7 @@ const login = async (req, res) => {
     if (users.length === 0) {
       return res.status(401).json({
         success: false,
-        message: "Email hoặc mật khẩu không chính xác",
+        message: "Email hoặc mật khẩu không đúng",
       });
     }
 
@@ -87,34 +87,32 @@ const login = async (req, res) => {
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        message: "Email hoặc mật khẩu không chính xác",
+        message: "Email hoặc mật khẩu không đúng",
       });
     }
 
-    // Tạo JWT token
+    // Tạo token với đầy đủ thông tin
     const token = jwt.sign(
       {
-        id: user.user_id,
+        user_id: user.user_id,
         email: user.email,
         role: user.role,
       },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-    console.log(104);
 
-    // Trả về thông tin đăng nhập thành công
+    console.log("Token created with user_id:", user.user_id);
+
     res.json({
       success: true,
       message: "Đăng nhập thành công",
       data: {
         token,
         user: {
-          id: user.user_id,
+          user_id: user.user_id,
           email: user.email,
-          fullName: user.full_name,
           role: user.role,
-          createdAt: user.created_at,
         },
       },
     });
@@ -122,7 +120,8 @@ const login = async (req, res) => {
     console.error("Login error:", error);
     res.status(500).json({
       success: false,
-      message: "Đã có lỗi xảy ra, vui lòng thử lại sau",
+      message: "Lỗi server khi đăng nhập",
+      error: error.message,
     });
   }
 };
@@ -130,8 +129,8 @@ const login = async (req, res) => {
 // Lấy thông tin người dùng
 const getUserProfile = async (req, res) => {
   try {
-    // Lấy id từ token đã decode trong middleware
-    const userId = req.user.id; // Thay vì req.user.userId
+    // Lấy user_id từ token đã decode trong middleware
+    const userId = req.user.user_id;
 
     const [user] = await db.query(
       "SELECT user_id, username, email, full_name, phone, address, role, created_at FROM users WHERE user_id = ?",
@@ -148,7 +147,7 @@ const getUserProfile = async (req, res) => {
     res.json({
       success: true,
       data: {
-        id: user[0].user_id,
+        user_id: user[0].user_id,
         username: user[0].username,
         email: user[0].email,
         fullName: user[0].full_name,
@@ -169,7 +168,7 @@ const getUserProfile = async (req, res) => {
 
 // Cập nhật thông tin người dùng
 const updateUserProfile = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.user_id;
   const { username, email, fullName, phone, address } = req.body;
 
   try {
@@ -182,6 +181,7 @@ const updateUserProfile = async (req, res) => {
       success: true,
       message: "Cập nhật thông tin thành công",
       data: {
+        user_id: userId,
         username,
         email,
         fullName,
@@ -199,13 +199,23 @@ const updateUserProfile = async (req, res) => {
 };
 
 // Xóa tài khoản
-const deleteUserAccount = (req, res) => {
-  const userId = req.user.userId;
+const deleteUserAccount = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
 
-  db.query("DELETE FROM users WHERE user_id = ?", [userId], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "Account deleted successfully" });
-  });
+    await db.query("DELETE FROM users WHERE user_id = ?", [userId]);
+
+    res.json({
+      success: true,
+      message: "Xóa tài khoản thành công",
+    });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi xóa tài khoản",
+    });
+  }
 };
 
 const updatePasswordByUserId = async (req, res) => {

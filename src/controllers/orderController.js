@@ -2,61 +2,54 @@ const db = require("../config/db"); // Import kết nối DB
 
 const getMyOrders = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    // Log để debug
+    console.log("Request user data:", req.user);
+    console.log("Authorization header:", req.headers.authorization);
 
+    if (!req.user || !req.user.user_id) {
+      console.log("No user data found in request");
+      return res.status(401).json({
+        success: false,
+        message: "Không tìm thấy thông tin người dùng",
+      });
+    }
+
+    const userId = req.user.user_id;
     console.log("Fetching orders for user:", userId);
 
-    // Lấy danh sách đơn hàng
-    const [orders] = await db.query(
-      `SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
-      [userId]
-    );
+    const query = `
+      SELECT 
+        o.order_id,
+        o.total_amount,
+        o.status,
+        o.created_at,
+        oi.quantity,
+        oi.price,
+        p.name as product_name,
+        p.image,
+        v.size,
+        v.color
+      FROM orders o
+      JOIN order_items oi ON o.order_id = oi.order_id
+      JOIN products p ON oi.product_id = p.product_id
+      JOIN variants v ON oi.variant_id = v.variant_id
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `;
 
+    console.log("Executing query with user_id:", userId);
+    const [orders] = await db.query(query, [userId]);
     console.log("Found orders:", orders);
-
-    // Lấy chi tiết cho từng đơn hàng
-    const ordersWithDetails = await Promise.all(
-      orders.map(async (order) => {
-        const [details] = await db.query(
-          `SELECT 
-            od.*,
-            p.name,
-            p.image as product_image,
-            v.size,
-            v.color
-           FROM order_details od
-           JOIN productvariants v ON od.variant_id = v.variant_id
-           JOIN products p ON v.product_id = p.product_id
-           WHERE od.order_id = ?`,
-          [order.order_id]
-        );
-
-        // Xử lý đường dẫn ảnh cho mỗi sản phẩm
-        const detailsWithImages = details.map((detail) => ({
-          ...detail,
-          image_url: detail.product_image
-            ? `/uploads/${detail.product_image}`
-            : null,
-        }));
-
-        console.log("Order details:", detailsWithImages);
-
-        return {
-          ...order,
-          details: detailsWithImages,
-        };
-      })
-    );
 
     res.json({
       success: true,
-      data: ordersWithDetails,
+      data: orders,
     });
   } catch (error) {
-    console.error("Error getting orders:", error);
+    console.error("Error fetching orders:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi lấy danh sách đơn hàng",
+      message: "Lỗi server khi lấy danh sách đơn hàng",
       error: error.message,
     });
   }
@@ -68,7 +61,7 @@ const createOrder = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const userId = req.user.id;
+    const userId = req.user.user_id;
     const { items, totalAmount } = req.body;
 
     // Log để debug

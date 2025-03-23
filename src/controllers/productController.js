@@ -44,12 +44,15 @@ const getAllProducts = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log("Getting product details for ID:", id);
 
     // Lấy thông tin sản phẩm
     const [product] = await db.query(
       "SELECT * FROM products WHERE product_id = ?",
       [id]
     );
+
+    console.log("Product data from DB:", product[0]);
 
     if (!product[0]) {
       return res.status(404).json({
@@ -60,18 +63,30 @@ const getProductById = async (req, res) => {
 
     // Lấy variants của sản phẩm
     const [variants] = await db.query(
-      "SELECT * FROM productvariants WHERE product_id = ?",
+      "SELECT variant_id, product_id, size, color, stock FROM productvariants WHERE product_id = ?",
       [id]
     );
+
+    console.log("Variants from DB:", variants);
+
+    // Kiểm tra nếu không có variants
+    if (!variants || variants.length === 0) {
+      console.log("No variants found for product:", id);
+      return res.status(400).json({
+        success: false,
+        message: "Sản phẩm không có biến thể",
+      });
+    }
 
     const productData = {
       ...product[0],
       variants,
     };
 
-    console.log("Chi tiết sản phẩm:", {
+    console.log("Final product data:", {
       productId: id,
-      image: productData.image,
+      variantsCount: variants.length,
+      firstVariant: variants[0],
     });
 
     res.json({
@@ -79,7 +94,7 @@ const getProductById = async (req, res) => {
       data: productData,
     });
   } catch (error) {
-    console.error("Lỗi khi lấy chi tiết sản phẩm:", error);
+    console.error("Error getting product details:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi khi lấy chi tiết sản phẩm",

@@ -2,27 +2,69 @@ const db = require("../config/db"); // Import kết nối DB
 
 const getCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Log để debug
+    console.log("Request user data:", req.user);
+    console.log("Authorization header:", req.headers.authorization);
+
+    if (!req.user || !req.user.user_id) {
+      console.log("No user data found in request");
+      return res.status(401).json({
+        success: false,
+        message: "Không tìm thấy thông tin người dùng",
+      });
+    }
+
+    const userId = req.user.user_id;
     console.log("Getting cart for user:", userId);
 
-    const [cartItems] = await db.query(
-      `SELECT c.cart_id, c.user_id, c.product_id, c.quantity,
-              p.name, p.price, p.image
-       FROM cart c
-       JOIN products p ON p.product_id = c.product_id
-       WHERE c.user_id = ?`,
-      [userId]
-    );
+    const query = `
+      SELECT 
+        c.cart_id,
+        c.quantity,
+        p.product_id,
+        p.name,
+        p.price,
+        p.image,
+        pv.variant_id,
+        pv.size,
+        pv.color
+      FROM cart c
+      JOIN products p ON c.product_id = p.product_id
+      JOIN productvariants pv ON c.variant_id = pv.variant_id
+      WHERE c.user_id = ?
+    `;
+
+    console.log("Executing query with user_id:", userId);
+    const [cartItems] = await db.query(query, [userId]);
+    console.log("Found cart items:", cartItems);
+
+    // Xử lý đường dẫn ảnh
+    const cleanedCartItems = cartItems.map((item) => {
+      let imageUrl = item.image;
+      if (!imageUrl.startsWith("http")) {
+        if (imageUrl.startsWith("/uploads/")) {
+          imageUrl = imageUrl;
+        } else {
+          imageUrl = `/uploads/${imageUrl}`;
+        }
+      }
+      return {
+        ...item,
+        image: imageUrl,
+      };
+    });
+
+    console.log("Cart items with cleaned image paths:", cleanedCartItems);
 
     res.json({
       success: true,
-      data: cartItems,
+      data: cleanedCartItems,
     });
   } catch (error) {
-    console.error("Get cart error:", error);
+    console.error("Error getting cart:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi lấy giỏ hàng",
+      message: "Lỗi server khi lấy giỏ hàng",
       error: error.message,
     });
   }
@@ -30,10 +72,10 @@ const getCart = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { productId, quantity } = req.body; // Chỉ lấy productId và quantity
+    const userId = req.user.user_id;
+    const { productId, variantId, quantity } = req.body;
 
-    console.log("Adding to cart:", { userId, productId, quantity });
+    console.log("Adding to cart:", { userId, productId, variantId, quantity });
 
     // 1. Kiểm tra sản phẩm có tồn tại không
     const [products] = await db.query(
@@ -51,8 +93,8 @@ const addToCart = async (req, res) => {
     // 2. Kiểm tra và thêm/cập nhật giỏ hàng
     const [existingItems] = await db.query(
       `SELECT * FROM cart 
-       WHERE user_id = ? AND product_id = ?`,
-      [userId, productId]
+       WHERE user_id = ? AND product_id = ? AND variant_id = ?`,
+      [userId, productId, variantId]
     );
 
     if (existingItems.length > 0) {
@@ -61,15 +103,15 @@ const addToCart = async (req, res) => {
       await db.query(
         `UPDATE cart 
          SET quantity = ? 
-         WHERE user_id = ? AND product_id = ?`,
-        [newQuantity, userId, productId]
+         WHERE user_id = ? AND product_id = ? AND variant_id = ?`,
+        [newQuantity, userId, productId, variantId]
       );
     } else {
       // Thêm mới nếu chưa tồn tại
       await db.query(
-        `INSERT INTO cart (user_id, product_id, quantity) 
-         VALUES (?, ?, ?)`,
-        [userId, productId, quantity]
+        `INSERT INTO cart (user_id, product_id, variant_id, quantity) 
+         VALUES (?, ?, ?, ?)`,
+        [userId, productId, variantId, quantity]
       );
     }
 
@@ -79,6 +121,7 @@ const addToCart = async (req, res) => {
       data: {
         userId,
         productId,
+        variantId,
         quantity,
       },
     });
@@ -96,7 +139,7 @@ const updateCartItem = async (req, res) => {
   try {
     const { itemId } = req.params;
     const { quantity } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.user_id;
 
     // Sửa lại câu query
     const [cartItem] = await db.query(
@@ -134,7 +177,7 @@ const updateCartItem = async (req, res) => {
 
     res.json({ success: true, message: "Cập nhật giỏ hàng thành công" });
   } catch (error) {
-    console.error("Update cart error:", error); // Thêm log
+    console.error("Update cart error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",
@@ -146,7 +189,7 @@ const updateCartItem = async (req, res) => {
 const removeFromCart = async (req, res) => {
   try {
     const { itemId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.user_id;
 
     // Sửa lại DELETE query
     const [result] = await db.query(
@@ -166,7 +209,7 @@ const removeFromCart = async (req, res) => {
       message: "Xóa sản phẩm khỏi giỏ hàng thành công",
     });
   } catch (error) {
-    console.error("Remove cart error:", error); // Thêm log
+    console.error("Remove cart error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",

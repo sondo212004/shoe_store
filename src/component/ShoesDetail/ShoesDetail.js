@@ -38,33 +38,30 @@ const ShoesDetail = () => {
 
         if (response.data.success) {
           const productData = response.data.data;
-          console.log("Product data received:", {
-            ...productData,
-            fullImageUrl: productData.image_url,
-          });
 
-          if (!productData) {
-            setError("Không tìm thấy thông tin sản phẩm");
+          // Log để debug variants
+          console.log("Product variants:", productData.variants);
+
+          // Kiểm tra và xử lý variants
+          if (!productData.variants || productData.variants.length === 0) {
+            setError("Sản phẩm này không có biến thể");
             return;
           }
 
           setProduct(productData);
 
-          // Nếu có variants, lấy màu đầu tiên làm mặc định
-          if (productData.variants && productData.variants.length > 0) {
-            const firstColor = productData.variants[0].color;
-            setSelectedColor(firstColor);
-            console.log("Setting default color:", firstColor);
-          } else {
-            console.log("No variants found for product");
-          }
+          // Set màu đầu tiên làm mặc định
+          const firstColor = productData.variants[0].color;
+          setSelectedColor(firstColor);
 
-          // Fetch reviews after getting product
+          // Log thông tin variant đầu tiên
+          console.log("First variant:", productData.variants[0]);
+
+          // Fetch reviews
           try {
             const reviewsResponse = await axios.get(
               `http://localhost:5000/api/reviews/product/${id}`
             );
-            console.log("Reviews response:", reviewsResponse.data);
             if (reviewsResponse.data.success) {
               setReviews(reviewsResponse.data.data);
             }
@@ -76,18 +73,8 @@ const ShoesDetail = () => {
           setError(response.data.message || "Không thể tải thông tin sản phẩm");
         }
       } catch (err) {
-        console.error("Error details:", err.response || err);
-        let errorMessage = "Không thể tải thông tin sản phẩm. ";
-
-        if (err.response) {
-          errorMessage += err.response.data.message || "Vui lòng thử lại sau.";
-        } else if (err.request) {
-          errorMessage += "Không thể kết nối đến server.";
-        } else {
-          errorMessage += "Đã xảy ra lỗi. Vui lòng thử lại.";
-        }
-
-        setError(errorMessage);
+        console.error("Error fetching product:", err);
+        setError("Không thể tải thông tin sản phẩm");
       } finally {
         setLoading(false);
       }
@@ -104,9 +91,17 @@ const ShoesDetail = () => {
   };
 
   const handleSizeSelect = (variant) => {
-    console.log("Selected variant:", variant);
+    console.log("Selecting variant:", variant);
+    if (!variant || !variant.variant_id) {
+      console.error("Invalid variant selected:", variant);
+      return;
+    }
     setSelectedVariant(variant);
     setSelectedSize(variant.size);
+    console.log("Updated state:", {
+      selectedVariant: variant,
+      selectedSize: variant.size,
+    });
   };
 
   const handleAddToCart = async () => {
@@ -116,10 +111,18 @@ const ShoesDetail = () => {
         return;
       }
 
-      if (!selectedVariant) {
+      // Thêm log chi tiết
+      console.log("Current state:", {
+        selectedColor,
+        selectedSize,
+        selectedVariant,
+        product,
+      });
+
+      if (!selectedVariant || !selectedVariant.variant_id) {
         setAddToCartMessage({
           type: "error",
-          content: "Vui lòng chọn màu sắc và kích thước",
+          content: "Vui lòng chọn size và màu sắc",
         });
         return;
       }
@@ -130,7 +133,9 @@ const ShoesDetail = () => {
         quantity: quantity,
       };
 
-      console.log("Sending cart data:", cartData);
+      // Log chi tiết dữ liệu gửi đi
+      console.log("Cart data to be sent:", cartData);
+      console.log("Selected variant details:", selectedVariant);
 
       const response = await axios.post(
         "http://localhost:5000/api/cart",
@@ -143,6 +148,8 @@ const ShoesDetail = () => {
         }
       );
 
+      console.log("Cart response:", response.data);
+
       if (response.data.success) {
         setAddToCartMessage({
           type: "success",
@@ -152,6 +159,12 @@ const ShoesDetail = () => {
       }
     } catch (error) {
       console.error("Add to cart error:", error);
+      if (error.response?.status === 401) {
+        // Token hết hạn hoặc không hợp lệ
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       setAddToCartMessage({
         type: "error",
         content: error.response?.data?.message || "Không thể thêm vào giỏ hàng",

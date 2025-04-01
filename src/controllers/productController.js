@@ -6,7 +6,7 @@ const getAllProducts = async (req, res) => {
   try {
     // Lấy tất cả sản phẩm
     const [products] = await db.query(
-      "SELECT product_id, name, description, price, image FROM products"
+      "SELECT product_id, name, description, price, image, brand, stock FROM products"
     );
 
     // Log thông tin sản phẩm
@@ -141,17 +141,25 @@ const updateProduct = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    if (!Object.keys(updates).length) {
+    // Lọc bỏ các trường có giá trị undefined hoặc null
+    const validUpdates = Object.fromEntries(
+      Object.entries(updates).filter(
+        ([_, value]) => value !== undefined && value !== null && value !== ""
+      )
+    );
+
+    if (!Object.keys(validUpdates).length) {
       return res.status(400).json({
         success: false,
-        message: "Không có dữ liệu để cập nhật",
+        message: "Không có dữ liệu hợp lệ để cập nhật",
       });
     }
 
-    const fields = Object.keys(updates)
+    // Tạo câu query động dựa trên các trường được gửi lên
+    const fields = Object.keys(validUpdates)
       .map((field) => `${field} = ?`)
       .join(", ");
-    const values = Object.values(updates);
+    const values = Object.values(validUpdates);
 
     const [result] = await db.query(
       `UPDATE products SET ${fields} WHERE product_id = ?`,
@@ -165,12 +173,22 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    res.json({ success: true, message: "Sản phẩm đã được cập nhật" });
+    // Lấy thông tin sản phẩm sau khi cập nhật
+    const [updatedProduct] = await db.query(
+      "SELECT * FROM products WHERE product_id = ?",
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: "Sản phẩm đã được cập nhật",
+      data: updatedProduct[0],
+    });
   } catch (error) {
     console.error("Lỗi khi cập nhật sản phẩm:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi cập nhật sản phẩm",
+      message: "Lỗi khi cập nhật sản phẩm: " + error.message,
     });
   }
 };

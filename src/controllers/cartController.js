@@ -72,10 +72,10 @@ const getCart = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
-    const userId = req.user.user_id;
-    const { productId, variantId, quantity } = req.body;
+    const userId = req.user.id;
+    const { productId, quantity } = req.body; // Chỉ lấy productId và quantity
 
-    console.log("Adding to cart:", { userId, productId, variantId, quantity });
+    console.log("Adding to cart:", { userId, productId, quantity });
 
     // 1. Kiểm tra sản phẩm có tồn tại không
     const [products] = await db.query(
@@ -93,8 +93,8 @@ const addToCart = async (req, res) => {
     // 2. Kiểm tra và thêm/cập nhật giỏ hàng
     const [existingItems] = await db.query(
       `SELECT * FROM cart 
-       WHERE user_id = ? AND product_id = ? AND variant_id = ?`,
-      [userId, productId, variantId]
+       WHERE user_id = ? AND product_id = ?`,
+      [userId, productId]
     );
 
     if (existingItems.length > 0) {
@@ -103,15 +103,15 @@ const addToCart = async (req, res) => {
       await db.query(
         `UPDATE cart 
          SET quantity = ? 
-         WHERE user_id = ? AND product_id = ? AND variant_id = ?`,
-        [newQuantity, userId, productId, variantId]
+         WHERE user_id = ? AND product_id = ?`,
+        [newQuantity, userId, productId]
       );
     } else {
       // Thêm mới nếu chưa tồn tại
       await db.query(
-        `INSERT INTO cart (user_id, product_id, variant_id, quantity) 
-         VALUES (?, ?, ?, ?)`,
-        [userId, productId, variantId, quantity]
+        `INSERT INTO cart (user_id, product_id, quantity) 
+         VALUES (?, ?, ?)`,
+        [userId, productId, quantity]
       );
     }
 
@@ -121,7 +121,6 @@ const addToCart = async (req, res) => {
       data: {
         userId,
         productId,
-        variantId,
         quantity,
       },
     });
@@ -139,7 +138,7 @@ const updateCartItem = async (req, res) => {
   try {
     const { itemId } = req.params;
     const { quantity } = req.body;
-    const userId = req.user.user_id;
+    const userId = req.user.id;
 
     // Sửa lại câu query
     const [cartItem] = await db.query(
@@ -177,7 +176,7 @@ const updateCartItem = async (req, res) => {
 
     res.json({ success: true, message: "Cập nhật giỏ hàng thành công" });
   } catch (error) {
-    console.error("Update cart error:", error);
+    console.error("Update cart error:", error); // Thêm log
     res.status(500).json({
       success: false,
       message: "Lỗi server",
@@ -189,7 +188,7 @@ const updateCartItem = async (req, res) => {
 const removeFromCart = async (req, res) => {
   try {
     const { itemId } = req.params;
-    const userId = req.user.user_id;
+    const userId = req.user.id;
 
     // Sửa lại DELETE query
     const [result] = await db.query(
@@ -209,7 +208,7 @@ const removeFromCart = async (req, res) => {
       message: "Xóa sản phẩm khỏi giỏ hàng thành công",
     });
   } catch (error) {
-    console.error("Remove cart error:", error);
+    console.error("Remove cart error:", error); // Thêm log
     res.status(500).json({
       success: false,
       message: "Lỗi server",

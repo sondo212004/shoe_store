@@ -182,7 +182,7 @@ const Orders = () => {
                   {order.details.map((item) => (
                     <div key={item.order_detail_id} className="order-item">
                       <img
-                        src={`http://localhost:5000${item.image_url}`}
+                        src={`${item.image_url}`}
                         alt={item.name}
                         className="item-image"
                         onError={(e) => {

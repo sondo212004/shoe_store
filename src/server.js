@@ -82,12 +82,12 @@ const userRoutes = require("./routes/userRoutes");
 
 // Dùng routes
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/order", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/images", ImageRoutes);
-app.use("/api/users", userRoutes);
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, "../build")));

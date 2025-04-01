@@ -7,13 +7,16 @@ import Signup from "./component/login-signup/signup";
 import ShoesDetail from "./component/ShoesDetail/ShoesDetail";
 import AdminDashboard from "./component/Admin/AdminDashboard";
 import AdminProducts from "./component/Admin/AdminProducts";
-import AdminEditProduct from "./component/Admin/AdminEditProduct";
+import EditProduct from "./component/Admin/EditProduct";
 import AdminAddProduct from "./component/Admin/AdminAddProduct";
-import UserProfile from "./component/Users/UserProfile";
+import AdminOrders from "./component/Admin/AdminOrders";
+import AdminUsers from "./component/Admin/AdminUsers";
 import Cart from "./component/Cart/Cart";
 import { CartProvider } from "./component/Cart/CartContex";
 import Orders from "./component/Order/Orders";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import ChangePassword from "./component/Users/ChangePassword";
+import UserProfile from "./component/Users/UserProfile";
 
 function App() {
   return (
@@ -37,12 +40,12 @@ function App() {
             <Route path="/product/:id" element={<ShoesDetail />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
-            <Route
-              path="/admin/products/edit/:id"
-              element={<AdminEditProduct />}
-            />
+            <Route path="/admin/products/edit/:id" element={<EditProduct />} />
             <Route path="/admin/products/add" element={<AdminAddProduct />} />
+            <Route path="/admin/order" element={<AdminOrders />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/user/profile" element={<UserProfile />} />
+
             <Route
               path="/cart"
               element={
@@ -56,6 +59,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Orders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/change-password"
+              element={
+                <ProtectedRoute>
+                  <ChangePassword />
                 </ProtectedRoute>
               }
             />

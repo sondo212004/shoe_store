@@ -28,7 +28,7 @@ const UserProfile = () => {
     const fetchUserProfile = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/auth/profile",
+          "http://localhost:5000/api/users/profile",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -74,7 +74,7 @@ const UserProfile = () => {
     e.preventDefault();
     try {
       const response = await axios.put(
-        "http://localhost:5000/api/auth/profile",
+        "http://localhost:5000/api/users/profile",
         formData,
         {
           headers: {

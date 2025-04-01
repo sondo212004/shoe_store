@@ -20,19 +20,20 @@ const getMyOrders = async (req, res) => {
     const query = `
       SELECT 
         o.order_id,
-        o.total_amount,
+        o.total_price,
         o.status,
         o.created_at,
-        oi.quantity,
-        oi.price,
+        od.order_detail_id,
+        od.quantity,
+        od.price,
         p.name as product_name,
         p.image,
-        v.size,
-        v.color
+        pv.size,
+        pv.color
       FROM orders o
-      JOIN order_items oi ON o.order_id = oi.order_id
-      JOIN products p ON oi.product_id = p.product_id
-      JOIN variants v ON oi.variant_id = v.variant_id
+      JOIN orderdetails od ON o.order_id = od.order_id
+      JOIN productvariants pv ON od.variant_id = pv.variant_id
+      JOIN products p ON pv.product_id = p.product_id
       WHERE o.user_id = ?
       ORDER BY o.created_at DESC
     `;
@@ -41,9 +42,44 @@ const getMyOrders = async (req, res) => {
     const [orders] = await db.query(query, [userId]);
     console.log("Found orders:", orders);
 
+    // Nhóm các chi tiết đơn hàng theo order_id
+    const groupedOrders = orders.reduce((acc, order) => {
+      const existingOrder = acc.find((o) => o.order_id === order.order_id);
+      if (existingOrder) {
+        existingOrder.details.push({
+          order_detail_id: order.orderdetail_id,
+          quantity: order.quantity,
+          price: order.price,
+          name: order.product_name,
+          image_url: order.image,
+          size: order.size,
+          color: order.color,
+        });
+      } else {
+        acc.push({
+          order_id: order.order_id,
+          total_price: order.total_price,
+          status: order.status,
+          created_at: order.created_at,
+          details: [
+            {
+              orderdetail_id: order.orderdetail_id,
+              quantity: order.quantity,
+              price: order.price,
+              name: order.product_name,
+              image_url: order.image,
+              size: order.size,
+              color: order.color,
+            },
+          ],
+        });
+      }
+      return acc;
+    }, []);
+
     res.json({
       success: true,
-      data: orders,
+      data: groupedOrders,
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
@@ -79,12 +115,12 @@ const createOrder = async (req, res) => {
     // 2. Thêm chi tiết đơn hàng
     for (const item of items) {
       await connection.query(
-        `INSERT INTO order_details 
-         (order_id, product_id, quantity, price) 
+        `INSERT INTO orderdetails 
+         (order_id, variant_id, quantity, price) 
          VALUES (?, ?, ?, ?)`,
         [
           orderId,
-          item.product_id,
+          item.variant_id,
           item.quantity,
           item.price * (1 - (item.discount || 0) / 100),
         ]
@@ -115,21 +151,124 @@ const createOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    // TODO: Admin lấy tất cả đơn hàng từ database
-    res.json({ message: "Lấy tất cả đơn hàng thành công" });
+    const query = `
+      SELECT 
+        o.order_id,
+        o.user_id,
+        o.total_price,
+        o.status,
+        o.created_at,
+        od.order_detail_id,
+        od.quantity,
+        od.price,
+        p.name as product_name,
+        p.image,
+        pv.size,
+        pv.color,
+        u.email as user_email,
+        u.full_name as user_fullname
+      FROM orders o
+      JOIN orderdetails od ON o.order_id = od.order_id
+      JOIN productvariants pv ON od.variant_id = pv.variant_id
+      JOIN products p ON pv.product_id = p.product_id
+      JOIN users u ON o.user_id = u.user_id
+      ORDER BY o.created_at DESC
+    `;
+
+    const [orders] = await db.query(query);
+
+    // Nhóm các chi tiết đơn hàng theo order_id
+    const groupedOrders = orders.reduce((acc, order) => {
+      const existingOrder = acc.find((o) => o.order_id === order.order_id);
+      if (existingOrder) {
+        existingOrder.details.push({
+          order_detail_id: order.order_detail_id,
+          quantity: order.quantity,
+          price: order.price,
+          name: order.product_name,
+          image_url: order.image,
+          size: order.size,
+          color: order.color,
+        });
+      } else {
+        acc.push({
+          order_id: order.order_id,
+          user_id: order.user_id,
+          user_email: order.user_email,
+          user_fullname: order.user_fullname,
+          total_price: order.total_price,
+          status: order.status,
+          created_at: order.created_at,
+          details: [
+            {
+              order_detail_id: order.order_detail_id,
+              quantity: order.quantity,
+              price: order.price,
+              name: order.product_name,
+              image_url: order.image,
+              size: order.size,
+              color: order.color,
+            },
+          ],
+        });
+      }
+      return acc;
+    }, []);
+
+    res.json({
+      success: true,
+      data: groupedOrders,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Error getting all orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi lấy danh sách đơn hàng",
+      error: error.message,
+    });
   }
 };
 
 const updateOrderStatus = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
+
     const { orderId } = req.params;
     const { status } = req.body;
-    // TODO: Admin cập nhật trạng thái đơn hàng
-    res.json({ message: "Cập nhật trạng thái đơn hàng thành công" });
+
+    // Kiểm tra trạng thái hợp lệ
+    const validStatuses = ["pending", "processing", "shipped", "delivered"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Trạng thái đơn hàng không hợp lệ",
+      });
+    }
+
+    // Cập nhật trạng thái đơn hàng
+    await connection.query(`UPDATE orders SET status = ? WHERE order_id = ?`, [
+      status,
+      orderId,
+    ]);
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: "Cập nhật trạng thái đơn hàng thành công",
+      data: { orderId, status },
+    });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi server" });
+    await connection.rollback();
+    console.error("Update order status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi cập nhật trạng thái đơn hàng",
+      error: error.message,
+    });
+  } finally {
+    connection.release();
   }
 };
 

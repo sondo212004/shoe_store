@@ -201,14 +201,17 @@ const Header = () => {
                     </div>
                     <div className="menu-divider"></div>
                     <Link to="/user/profile" className="menu-item">
-                      Thông tin tài khoản
+                      <i className="fas fa-user"></i> Tài khoản
                     </Link>
                     <Link to="/orders" className="menu-item">
-                      Đơn hàng của tôi
+                      <i className="fas fa-shopping-bag"></i> Đơn hàng
+                    </Link>
+                    <Link to="/change-password" className="menu-item">
+                      <i className="fas fa-key"></i> Đổi mật khẩu
                     </Link>
                     <div className="menu-divider"></div>
                     <button onClick={handleLogout} className="menu-item logout">
-                      Đăng xuất
+                      <i className="fas fa-sign-out-alt"></i> Đăng xuất
                     </button>
                   </div>
                 )}

@@ -66,7 +66,7 @@ const AdminProducts = () => {
         <div className="admin-profile">
           <div className="admin-avatar">👤</div>
           <div className="admin-info">
-            <h3>{user?.fullName}</h3>
+            <h3>{user?.full_name}</h3>
             <p>Admin</p>
           </div>
         </div>
@@ -77,7 +77,7 @@ const AdminProducts = () => {
           <Link to="/admin/products" className="nav-item active">
             Sản phẩm
           </Link>
-          <Link to="/admin/orders" className="nav-item">
+          <Link to="/admin/order" className="nav-item">
             Đơn hàng
           </Link>
           <Link to="/admin/users" className="nav-item">
@@ -114,9 +114,14 @@ const AdminProducts = () => {
                   <td>{product.product_id}</td>
                   <td>
                     <img
-                      src={product.image_url}
+                      src={`${product.image}`}
                       alt={product.name}
                       className="product-thumbnail"
+                      onError={(e) => {
+                        console.error("Image load error:", product.image);
+                        e.target.src =
+                          "http://localhost:5000/images/placeholder.jpg";
+                      }}
                     />
                   </td>
                   <td>{product.name}</td>

@@ -21,15 +21,16 @@ const AdminDashboard = () => {
       try {
         const response = await axios.get("http://localhost:5000/api/products");
         setProducts(response.data.data);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching products:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchProducts();
   }, [navigate, user]);
+
+  if (loading) return <div className="admin-loading">Đang tải...</div>;
 
   return (
     <div className="admin-dashboard">
@@ -37,12 +38,12 @@ const AdminDashboard = () => {
         <div className="admin-profile">
           <div className="admin-avatar">👤</div>
           <div className="admin-info">
-            <h3>{user?.fullName}</h3>
+            <h3>{user?.full_name}</h3>
             <p>Admin</p>
           </div>
         </div>
         <nav className="admin-nav">
-          <Link to="/admin" className="nav-item text-decoration-none">
+          <Link to="/admin" className="nav-item active text-decoration-none">
             Dashboard
           </Link>
           <Link to="/admin/products" className="nav-item text-decoration-none">
@@ -51,8 +52,9 @@ const AdminDashboard = () => {
           <Link to="/admin/orders" className="nav-item text-decoration-none">
             Đơn hàng
           </Link>
-          <button className="nav-item text-decoration-none">Người dùng</button>
-          <button className="nav-item text-decoration-none">Cài đặt</button>
+          <Link to="/admin/users" className="nav-item text-decoration-none">
+            Người dùng
+          </Link>
         </nav>
       </div>
 
@@ -108,9 +110,13 @@ const AdminDashboard = () => {
                   <td>{product.product_id}</td>
                   <td>
                     <img
-                      src={product.image_url}
+                      src={`${product.image}`}
                       alt={product.name}
                       className="product-thumbnail"
+                      onError={(e) => {
+                        e.target.src =
+                          "http://localhost:5000/images/placeholder.jpg";
+                      }}
                     />
                   </td>
                   <td>{product.name}</td>
